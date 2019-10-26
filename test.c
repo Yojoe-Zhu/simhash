@@ -60,7 +60,7 @@ static void test_distance(uint64_t a, uint64_t b)
 {
     print_bin(a);
     print_bin(b);
-    printf("-- Distance: %d --\n", sim_distance(a, b));
+    printf("-- Distance: %d --\n", hamming_distance(a, b));
 }
 
 int main()
@@ -86,6 +86,14 @@ int main()
     test_distance(simhash(a), simhash(b));
     loop_run(500000, a);
     loop_run(500000, b);
+	printf("\n");
+
+    a = "The only true friend was diary.";
+    b = "I haven’t been able to be outdoors for so long";
+    test_distance(simhash(a), simhash(b));
+    a = "The only true friend was diary.";
+    b = "The only true friend is diary.";
+    test_distance(simhash(a), simhash(b));
 	printf("\n");
 
     return 0;

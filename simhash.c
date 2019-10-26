@@ -22,7 +22,7 @@ struct list_head *_extract(const char *text)
     struct feature_pair *pair;
 	const char *p = text;
     unsigned int len = strlen(text);
-    unsigned int step = 4;
+    unsigned int step = 1;
 
     list = malloc(sizeof(struct list_head));
     INIT_LIST_HEAD(list);
@@ -45,21 +45,19 @@ struct list_head *_extract(const char *text)
     return list;
 }
 
-static inline uint64_t xxhash(const char *str, unsigned int len)
+extern void hashlittle2(
+  const void *key,   /* the key to hash */
+  size_t      length,/* length of the key */
+  uint32_t   *pc,    /* IN: primary initval, OUT: primary hash */
+  uint32_t   *pb);    /* IN: secondary initval, OUT: secondary hash */
+
+static inline uint64_t lookup3_hash(const char *str, unsigned int len)
 {
     unsigned int hi = 0;
     unsigned int low = 5381;
     unsigned int seed = 131;
 
-    while (len--) {
-        hi *= seed;
-        hi += (*str);
-        low += (low << 5) + (*str);
-        str++;
-    }
-
-    hi &= 0x7FFFFFFF;
-    low &= 0x7FFFFFFF;
+    hashlittle2(str, len, &hi, &low);
 
     return ((uint64_t)hi << 32) | low;
 }
@@ -69,7 +67,7 @@ static inline void _hash(struct list_head *head)
 	struct feature_pair *entry;
 
 	list_for_each_entry(entry, head, node) {
-		entry->hash = xxhash(entry->feature, entry->len);
+		entry->hash = lookup3_hash(entry->feature, entry->len);
 	}
 }
 
@@ -130,7 +128,7 @@ uint64_t simhash(const char *text)
     return hash;
 }
 
-int sim_distance(uint64_t a, uint64_t b)
+int hamming_distance(uint64_t a, uint64_t b)
 {
     int cnt = 0;
     uint64_t c = a ^ b;
@@ -147,5 +145,5 @@ int sim_distance(uint64_t a, uint64_t b)
 
 bool is_equal(uint64_t a, uint64_t b)
 {
-    return sim_distance(a, b) <= 3;
+    return hamming_distance(a, b) <= 3;
 }
