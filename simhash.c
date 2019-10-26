@@ -4,60 +4,64 @@
 #include <string.h>
 #include "list.h"
 
-
 struct feature_pair {
-    float weight;
+    int weight;
     const char *feature;
+    unsigned int len;
     uint64_t hash;
     struct list_head node;
 };
 
+struct feature_pair total_pairs[200];
+
 struct list_head *_extract(const char *text)
 {
     int i;
+    int cnt = 0;
     struct list_head *list;
     struct feature_pair *pair;
-	char *str = strdup(text);
-	char *p;
+	const char *p = text;
+    unsigned int len = strlen(text);
+    unsigned int step = 4;
 
     list = malloc(sizeof(struct list_head));
     INIT_LIST_HEAD(list);
 
-	p = strtok(str, " ");
-	while (p != NULL) {
-        pair = malloc(sizeof(struct feature_pair));
+    for (i = 0; i < len; i += step) {
+        pair = &total_pairs[cnt++];
+        list_append(list, &pair->node);
         pair->weight = 1;
         pair->feature = p;
-        list_append(list, &pair->node);
-		p = strtok(NULL, " ");
-    }
 
-    free(str);
+        if (i + step < len) {
+            pair->len = step;
+        } else {
+            pair->len = len - i;
+        }
+
+        p += pair->len;
+    }
 
     return list;
 }
 
-static inline unsigned int BKDRHash(const char *str)
+static inline uint64_t xxhash(const char *str, unsigned int len)
 {
+    unsigned int hi = 0;
+    unsigned int low = 5381;
     unsigned int seed = 131;
-    unsigned int hash = 0;
 
-    while (*str) {
-        hash = hash * seed + (*str++);
+    while (len--) {
+        hi *= seed;
+        hi += (*str);
+        low += (low << 5) + (*str);
+        str++;
     }
 
-    return (hash & 0x7FFFFFFF);
-}
+    hi &= 0x7FFFFFFF;
+    low &= 0x7FFFFFFF;
 
-static inline unsigned int DJBHash(const char *str)
-{
-    unsigned int hash = 5381;
-
-    while (*str) {
-        hash += (hash << 5) + (*str++);
-    }
-
-    return (hash & 0x7FFFFFFF);
+    return ((uint64_t)hi << 32) | low;
 }
 
 static inline void _hash(struct list_head *head)
@@ -65,18 +69,17 @@ static inline void _hash(struct list_head *head)
 	struct feature_pair *entry;
 
 	list_for_each_entry(entry, head, node) {
-		entry->hash = (uint64_t)BKDRHash(entry->feature) << 32 |
-            DJBHash(entry->feature);
+		entry->hash = xxhash(entry->feature, entry->len);
 	}
 }
 
-static inline uint64_t _reduction(float set[64])
+static inline uint64_t _reduction(int set[64])
 {
 	int i;
 	uint64_t hash = 0;
 
 	for (i = 0; i < 64; i++) {
-		hash |= (uint64_t)(set[i] > 0.0) << i;
+		hash |= (uint64_t)(set[i] > 0) << i;
 	}
 
 	return hash;
@@ -84,14 +87,11 @@ static inline uint64_t _reduction(float set[64])
 
 static inline uint64_t _merge(struct list_head *head)
 {
-	float set[64];
+	int set[64] = {0};
 	struct feature_pair *entry;
 	uint64_t hash;
-	float weight;
+	int weight;
 	int i;
-
-	for (i = 0; i < 64; i++)
-		set[i] = 0.0;
 
 	list_for_each_entry(entry, head, node) {
 		hash = entry->hash;
@@ -124,7 +124,6 @@ uint64_t simhash(const char *text)
 
     list_for_each_entry_safe(entry, n, head, node) {
         list_del(&entry->node);
-        free(entry);
     }
     free(head);
 
