@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include "simhash.h"
 #include "list.h"
 
 struct feature_pair {
